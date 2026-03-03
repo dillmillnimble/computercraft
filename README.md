@@ -3,4 +3,4 @@ Currently includes some super basic door script with remote access and a Deadman
 and an advanced mining script using ccchunkloaders and some other addons. with a lightweight go backend 
 
 # APIs to use:
-- LAMA https://github.com/fnuecke/lama
+- LAMA https://github.com/fnuecke/lama (sadly doesnt work)
