@@ -32,7 +32,7 @@ local backplane = telem.backplane()
             custom_short_2 = stressCap
         }
     end))
-    :addOutput("stress", telem.output.plotter.line(win, "custom_short", colors.black, colors.yellow))
+    :addOutput("stress", telem.output.plotter.line(win, "custom_short_1", colors.black, colors.yellow))
     -- :addOutput("influxdb", telem.output.grafana(authGrafana.endpoint, authGrafana.apiKey))
 
 
