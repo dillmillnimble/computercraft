@@ -61,9 +61,9 @@ local function setDeployer(side, state)
 end
 
 local function setAllDeployers(state)
-    setDeployer(left, state)
-    setDeployer(middle, state)
-    setDeployer(right, state)
+    setDeployer("left", state)
+    setDeployer("middle", state)
+    setDeployer("right", state)
 end
 
 -- Pump Controls: true = pump on, false = pump off.
@@ -72,17 +72,16 @@ local function setPump(side, state)
     boiler[side].pumps.setOutput("left", not state)
 end
 local function setAllPumps(state)
-    -- setPump(left, state)
-    -- setPump(middle, state)
-    -- setPump(right, state)
     for k, v in pairs(boiler) do
         setPump(k, state)
+    end
 end
 
 local function toggleBoiler(side, state)
     setPump(side, state)
     setDeployer(side, state)
     boiler[side].active = state
+end
 
 -- Main Clutch Controls: true = clutch engaged, false = clutch disengaged.
 local function connectClutch(state)
@@ -91,7 +90,8 @@ end
 
 local function getStatus()
     for side, v in pairs(boiler) do
-        v.active = not v.pumps.getOutput("front")
+        v.active = not v.pumps.getOutput("left")
+        print(side, v.active)
     end
 end
 
@@ -101,6 +101,8 @@ local function choke()
 end
 
 local function kickstart()
+    print("kickstarting")
+    
     connectClutch(false)
     setAllDeployers(false)
     setAllPumps(false)
@@ -119,7 +121,7 @@ local function commandlistener()
             kickstart()
         elseif message.action == "choke" then
             choke()
-        elseif messageaction == "toggle" then
+        elseif message.action == "toggle" then
             toggleBoiler(message.target, message.value)
         end
     end
@@ -135,9 +137,9 @@ local function loop()
                 stressCap = stressCap
             }, 
             active_boilers = {
-                left = boilerActive_left,
-                middle = boilerActive_middle,
-                right = boilerActive_right
+                left = boiler.left.active,
+                middle = boiler.middle.active,
+                right = boiler.right.active
             }
         }
         rednet.broadcast(packet, "statusProtocol")
@@ -145,7 +147,9 @@ local function loop()
     end
 end
 
+getStatus()
+
 parallel.waitForAny(
-    commandlistener, loop, getStatus
+    commandlistener, loop
 )
 
