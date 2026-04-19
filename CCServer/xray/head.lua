@@ -10,6 +10,8 @@ local CONFIG = {
 	yawQuarterTurns = 0,
 	-- Reduces drift caused by standing at different sub-block positions.
 	useSubBlockCompensation = true,
+	-- Try to draw through terrain by disabling depth test on overlays.
+	renderThroughWalls = true,
 }
 
 local modules = peripheral.find("neuralInterface")
@@ -152,6 +154,28 @@ local function getSubBlockComp(meta)
 	return dx, dy, dz
 end
 
+local function setBoxDepthMode(box)
+	if not CONFIG.renderThroughWalls then
+		return false
+	end
+
+	-- Plethora variants expose depth toggles under different method names.
+	if tryMethod(box, "setDepthTested", false) then
+		return true
+	end
+	if tryMethod(box, "setDepthTest", false) then
+		return true
+	end
+	if tryMethod(box, "setDepth", false) then
+		return true
+	end
+	if tryMethod(box, "setDepthWrite", false) then
+		return true
+	end
+
+	return false
+end
+
 print("xray head receiver ready")
 print("modem: " .. modemName)
 print("offset: " .. CONFIG.offset.x .. ", " .. CONFIG.offset.y .. ", " .. CONFIG.offset.z)
@@ -178,6 +202,8 @@ local snapX, snapY, snapZ = getSubBlockComp(ownerMeta)
 
 local root3d = canvas3d.create({ 0, 0, 0 })
 local drawn = 0
+local depthConfigured = 0
+local rootDepthConfigured = setBoxDepthMode(root3d)
 
 for _, block in ipairs(message.blocks) do
 	local bx = block.x
@@ -193,7 +219,10 @@ for _, block in ipairs(message.blocks) do
 	local drawY = by + CONFIG.offset.y + snapY
 	local drawZ = bz + CONFIG.offset.z + snapZ
 
-	root3d.addBox(drawX, drawY, drawZ, 1, 1, 1, CONFIG.boxColor)
+	local box = root3d.addBox(drawX, drawY, drawZ, 1, 1, 1, CONFIG.boxColor)
+	if setBoxDepthMode(box) then
+		depthConfigured = depthConfigured + 1
+	end
 	drawn = drawn + 1
 end
 
@@ -201,4 +230,10 @@ print(string.format("yaw %.1f -> facing %s", ownerYaw, ownerFacing))
 print("manual quarter-turns: " .. CONFIG.yawQuarterTurns)
 print(string.format("sub-block compensation %.2f, %.2f, %.2f", snapX, snapY, snapZ))
 print(string.format("drawn %d blocks from sender %d", drawn, senderId))
+if CONFIG.renderThroughWalls then
+	print(string.format("depth test disabled on %d/%d boxes", depthConfigured, drawn))
+	if rootDepthConfigured then
+		print("depth test disabled on root group")
+	end
+end
 print("done")
