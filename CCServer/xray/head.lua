@@ -2,6 +2,8 @@ local CONFIG = {
 	channelProtocol = "xray_scan_v1",
 	receiveTimeout = 10,
 	boxColor = 0x40FF40AA,
+	-- Calibration knobs: tweak these until rendered boxes match real blocks.
+	offset = { x = -0.6, y = -1.5, z = -0.65 },
 }
 
 local modules = peripheral.find("neuralInterface")
@@ -29,8 +31,56 @@ if not modemName then
 	error("No wireless modem found for rednet.", 0)
 end
 
+local function tryMethod(obj, methodName, ...)
+	if type(obj) ~= "table" then
+		return false
+	end
+
+	local fn = obj[methodName]
+	if type(fn) ~= "function" then
+		return false
+	end
+
+	local ok = pcall(fn, obj, ...)
+	if ok then
+		return true
+	end
+
+	ok = pcall(fn, ...)
+	return ok
+end
+
+local function clearPersisted3d(canvas3d)
+	local cleared = false
+
+	cleared = tryMethod(canvas3d, "clear") or cleared
+
+	local tempRoot = nil
+	if type(canvas3d.create) == "function" then
+		local ok, result = pcall(canvas3d.create, { 0, 0, 0 })
+		if not ok then
+			ok, result = pcall(canvas3d.create, canvas3d, { 0, 0, 0 })
+		end
+		if ok then
+			tempRoot = result
+		end
+	end
+
+	if tempRoot then
+		cleared = tryMethod(tempRoot, "clear") or cleared
+		cleared = tryMethod(tempRoot, "remove") or cleared
+	end
+
+	return cleared
+end
+
+local canvas3d = modules.canvas3d()
+local cleared = clearPersisted3d(canvas3d)
+
 print("xray head receiver ready")
 print("modem: " .. modemName)
+print("offset: " .. CONFIG.offset.x .. ", " .. CONFIG.offset.y .. ", " .. CONFIG.offset.z)
+print("startup clear: " .. (cleared and "ok" or "not supported"))
 print("waiting for one packet: " .. CONFIG.channelProtocol)
 
 local senderId, message = rednet.receive(CONFIG.channelProtocol, CONFIG.receiveTimeout)
@@ -42,16 +92,21 @@ if type(message) ~= "table" or type(message.blocks) ~= "table" then
 	error("Invalid packet format", 0)
 end
 
-local first = message.blocks[1]
-if not first then
+if #message.blocks == 0 then
 	error("Packet had no blocks to draw", 0)
 end
 
-local canvas3d = modules.canvas3d()
 local root3d = canvas3d.create({ 0, 0, 0 })
+local drawn = 0
 
--- One draw call MVP: place one 1x1x1 box at scanner-reported relative coords.
-root3d.addBox(first.x, first.y, first.z, 1, 1, 1, CONFIG.boxColor)
+for _, block in ipairs(message.blocks) do
+	local drawX = block.x + CONFIG.offset.x
+	local drawY = block.y + CONFIG.offset.y
+	local drawZ = block.z + CONFIG.offset.z
 
-print(string.format("drawn 1 block from sender %d at (%d, %d, %d)", senderId, first.x, first.y, first.z))
+	root3d.addBox(drawX, drawY, drawZ, 1, 1, 1, CONFIG.boxColor)
+	drawn = drawn + 1
+end
+
+print(string.format("drawn %d blocks from sender %d", drawn, senderId))
 print("done")
