@@ -150,8 +150,6 @@ local function drawPacket(message)
 		return
 	end
 
-	clearCurrentRender()
-
 	local ownerMeta = getOwnerMeta()
 	local ownerYaw = ownerMeta and tonumber(ownerMeta.yaw) or 0
 	local ownerFacing = facingFromYaw(ownerYaw)
@@ -176,7 +174,13 @@ local function drawPacket(message)
 		setDepthDisabled(box)
 	end
 
+	local previousRoot = currentRoot
 	currentRoot = root
+
+	if previousRoot then
+		tryMethod(previousRoot, "clear")
+		tryMethod(previousRoot, "remove")
+	end
 end
 
 clearAllStartup()
