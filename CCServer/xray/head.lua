@@ -3,7 +3,20 @@ local CONFIG = {
 	responseProtocol = "xray_scan_v1",
 	responseTimeout = 2.0,
 	scanKey = keys.leftAlt,
-	boxColor = 0x40FF40AA,
+	defaultBoxColor = 0x28FFFFFF,
+	oreColors = {
+		["minecraft:diamond_ore"] = 0x301ED0D6,
+		["minecraft:deepslate_diamond_ore"] = 0x301ED0D6,
+		["minecraft:ancient_debris"] = 0x3095867E,
+		["minecraft:emerald_ore"] = 0x3041F384,
+		["minecraft:deepslate_emerald_ore"] = 0x3041F384,
+		["minecraft:gold_ore"] = 0x30FCEE4B,
+		["minecraft:deepslate_gold_ore"] = 0x30FCEE4B,
+		["minecraft:redstone_ore"] = 0x30FF3B3B,
+		["minecraft:deepslate_redstone_ore"] = 0x30FF3B3B,
+		["minecraft:lapis_ore"] = 0x30446FDC,
+		["minecraft:deepslate_lapis_ore"] = 0x30446FDC,
+	},
 	offset = { x = -0.6, y = -1.5, z = -0.65 },
 	yawQuarterTurns = 0,
 	renderThroughWalls = true,
@@ -164,6 +177,7 @@ local function drawPacket(message)
 		local bx = block.x
 		local by = block.y
 		local bz = block.z
+		local blockName = block.n or block.name
 
 		bx, bz = rotateFromEastBaseline(bx, bz, ownerFacing)
 		bx, bz = rotateQuarterTurns(bx, bz, CONFIG.yawQuarterTurns)
@@ -172,7 +186,8 @@ local function drawPacket(message)
 		local drawY = by + CONFIG.offset.y + snapY
 		local drawZ = bz + CONFIG.offset.z + snapZ
 
-		local box = root.addBox(drawX, drawY, drawZ, 1, 1, 1, CONFIG.boxColor)
+		local color = CONFIG.oreColors[blockName] or CONFIG.defaultBoxColor
+		local box = root.addBox(drawX, drawY, drawZ, 1, 1, 1, color)
 		setDepthDisabled(box)
 	end
 
