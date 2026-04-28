@@ -1,0 +1,121 @@
+-- Drill Monitor Base Station
+-- Displays live map of mining progress on 5x3 advanced monitor
+
+local CHANNEL = 42
+
+-- Box boundaries
+local MIN_X = 275
+local MAX_X = 446
+local MIN_Z = -488
+local MAX_Z = -382
+local BOX_W = MAX_X - MIN_X  -- 171
+local BOX_H = MAX_Z - MIN_Z  -- 105 (using absolute)
+
+-- Connect monitor and modem
+local monitor = peripheral.find("monitor")
+local modem = peripheral.find("modem")
+
+if not monitor then print("ERROR: No monitor!") return end
+if not modem then print("ERROR: No modem!") return end
+
+monitor.setTextScale(0.5)
+modem.open(CHANNEL)
+
+-- Track visited positions
+local visited = {}
+
+-- Map the world coordinate to monitor coordinate
+local monW, monH = monitor.getSize()
+
+local function worldToScreen(x, z)
+  local sx = math.floor(((x - MIN_X) / BOX_W) * (monW - 2)) + 2
+  local sy = math.floor(((z - MIN_Z) / BOX_H) * (monH - 2)) + 2
+  return sx, sy
+end
+
+-- Draw the full map
+local function drawMap(drillX, drillZ, fuel)
+  monitor.clear()
+
+  -- Draw border
+  monitor.setBackgroundColor(colors.gray)
+  for x = 1, monW do
+    monitor.setCursorPos(x, 1)
+    monitor.write("-")
+    monitor.setCursorPos(x, monH)
+    monitor.write("-")
+  end
+  for y = 1, monH do
+    monitor.setCursorPos(1, y)
+    monitor.write("|")
+    monitor.setCursorPos(monW, y)
+    monitor.write("|")
+  end
+
+  -- Draw visited cells in green
+  monitor.setBackgroundColor(colors.green)
+  monitor.setTextColor(colors.green)
+  for key, _ in pairs(visited) do
+    local px, pz = key:match("(-?%d+),(-?%d+)")
+    px, pz = tonumber(px), tonumber(pz)
+    local sx, sy = worldToScreen(px, pz)
+    if sx >= 2 and sx <= monW-1 and sy >= 2 and sy <= monH-1 then
+      monitor.setCursorPos(sx, sy)
+      monitor.write(" ")
+    end
+  end
+
+  -- Draw drill position in red
+  if drillX and drillZ then
+    local sx, sy = worldToScreen(drillX, drillZ)
+    monitor.setBackgroundColor(colors.red)
+    monitor.setTextColor(colors.white)
+    if sx >= 2 and sx <= monW-1 and sy >= 2 and sy <= monH-1 then
+      monitor.setCursorPos(sx, sy)
+      monitor.write("D")
+    end
+  end
+
+  -- Calculate and show progress
+  local totalCells = BOX_W * BOX_H
+  local visitedCount = 0
+  for _ in pairs(visited) do visitedCount = visitedCount + 1 end
+  local percent = math.floor((visitedCount / totalCells) * 100)
+
+  -- Info bar on computer screen (not monitor)
+  term.clear()
+  term.setCursorPos(1,1)
+  term.setTextColor(colors.yellow)
+  print("=== DRILL MONITOR ===")
+  term.setTextColor(colors.white)
+  print("Drill X: " .. (drillX or "?"))
+  print("Drill Z: " .. (drillZ or "?"))
+  print("Fuel:    " .. (fuel or "?"))
+  print("Mined:   " .. visitedCount .. " blocks")
+  print("Progress:" .. percent .. "%")
+  print("Box: " .. BOX_W .. "x" .. BOX_H)
+end
+
+-- Draw initial empty map
+drawMap(nil, nil, nil)
+print("Waiting for drill signal...")
+
+-- Main loop - listen for transmissions
+while true do
+  local event, side, ch, rch, data = os.pullEvent("modem_message")
+
+  if ch == CHANNEL and type(data) == "table" then
+    if data.error then
+      term.setCursorPos(1, 8)
+      term.setTextColor(colors.red)
+      print("ERROR: " .. data.error)
+    else
+      -- Mark position as visited
+      local key = data.x .. "," .. data.z
+      visited[key] = true
+
+      -- Redraw map
+      drawMap(data.x, data.z, data.fuel)
+    end
+  end
+end
