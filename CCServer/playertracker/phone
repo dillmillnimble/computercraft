@@ -1,0 +1,21 @@
+-- player_broadcaster.lua
+-- Run this on each player's pocket computer
+
+local modem = peripheral.find("modem")
+if not modem then
+  print("No modem found! Attach a wireless modem.")
+  return
+end
+
+modem.open(99) -- channel 99 = our tracker channel
+
+local playerName = os.getComputerLabel() or ("Player" .. os.getComputerID())
+
+while true do
+  local x, y, z = gps.locate(5) -- 5 second timeout
+  if x then
+    local data = textutils.serialise({ name = playerName, x = x, y = y, z = z })
+    modem.transmit(99, 99, data)
+  end
+  sleep(1) -- broadcast every second
+end
